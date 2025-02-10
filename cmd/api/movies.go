@@ -23,7 +23,7 @@ func (app *application) createMovieHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	movie := data.Movie{
+	movie := &data.Movie{
 		Title:   input.Title,
 		Runtime: input.Runtime,
 		Genres:  input.Genres,
