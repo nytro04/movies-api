@@ -101,12 +101,13 @@ func (app *application) updateMovieHandler(w http.ResponseWriter, r *http.Reques
 		}
 		return
 	}
-
+// To support partial updates, we change the type to pointers and use the zero value to determine if the field was provided.
+// by checking if the field is nil or not
 	var input struct {
-		Title   string       `json:"title"`
-		Runtime data.Runtime `json:"runtime"`
-		Genres  []string     `json:"genres"`
-		Year    int32        `json:"year"`
+		Title   *string       `json:"title"` // this will be nil if the field is not provided
+		Year    *int32        `json:"year"` // same as above
+		Runtime *data.Runtime `json:"runtime"` // same as above
+		Genres  []string     `json:"genres"` // no pointer here because the zero value of a slice is nil
 	}
 
 	// read the JSON request body data into the input struct
@@ -117,10 +118,19 @@ func (app *application) updateMovieHandler(w http.ResponseWriter, r *http.Reques
 	}
 
 	// update the movie record in the database with the updated details
-	movie.Title = input.Title
-	movie.Year = input.Year
-	movie.Runtime = input.Runtime
-	movie.Genres = input.Genres
+	// if the field is not provided, we use the existing value
+	if input.Title != nil {
+		movie.Title = *input.Title // dereference the pointer (*) to get the value
+	}
+	if input.Year != nil {
+		movie.Year = *input.Year
+	}
+	if input.Runtime != nil {
+		movie.Runtime = *input.Runtime
+	}
+	if input.Genres != nil {
+		movie.Genres = input.Genres // no need to dereference the pointer here
+	}
 
 	// validate the updated movie record
 	v := validator.New()
