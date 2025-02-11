@@ -93,7 +93,7 @@ func (m MovieModel) Update(movie *Movie) error {
 	query := `
 	UPDATE movies
 	SET title = $1, year = $2, runtime = $3, genres = $4, version = version + 1
-	WHERE ID = $5
+	WHERE ID = $5 AND version = $6
 	RETURNING version`
 
 	// Create a slice containing the movie genres
@@ -103,10 +103,21 @@ func (m MovieModel) Update(movie *Movie) error {
 		movie.Runtime,
 		pq.Array(movie.Genres),
 		movie.ID,
+		movie.Version,
 	}
 
-	// Execute the query and scan the returned version number into the movie struct.
-	return m.DB.QueryRow(query, args...).Scan(&movie.Version)
+	// Execute the query. If no matching row is found, we know that the movie version has changed
+	// or the movie has been deleted, so we return ErrEditConflict.
+	err := m.DB.QueryRow(query, args...).Scan(&movie.Version)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return ErrEditConflict
+		default:
+			return err
+		}
+	}
+	return nil
 }
 
 func (m MovieModel) Delete(id int64) error {

@@ -101,13 +101,13 @@ func (app *application) updateMovieHandler(w http.ResponseWriter, r *http.Reques
 		}
 		return
 	}
-// To support partial updates, we change the type to pointers and use the zero value to determine if the field was provided.
-// by checking if the field is nil or not
+	// To support partial updates, we change the type to pointers and use the zero value to determine if the field was provided.
+	// by checking if the field is nil or not
 	var input struct {
-		Title   *string       `json:"title"` // this will be nil if the field is not provided
-		Year    *int32        `json:"year"` // same as above
+		Title   *string       `json:"title"`   // this will be nil if the field is not provided
+		Year    *int32        `json:"year"`    // same as above
 		Runtime *data.Runtime `json:"runtime"` // same as above
-		Genres  []string     `json:"genres"` // no pointer here because the zero value of a slice is nil
+		Genres  []string      `json:"genres"`  // no pointer here because the zero value of a slice is nil
 	}
 
 	// read the JSON request body data into the input struct
@@ -141,9 +141,15 @@ func (app *application) updateMovieHandler(w http.ResponseWriter, r *http.Reques
 	}
 
 	// pass the updated movie record to the Update() method
+	// intercept any edit conflict errors and return a 409 status code
 	err = app.models.Movies.Update(movie)
 	if err != nil {
-		app.serverErrorResponse(w, r, err)
+		switch {
+		case errors.Is(err, data.ErrEditConflict):
+			app.editConflictResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
 		return
 	}
 
