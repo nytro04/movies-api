@@ -1,6 +1,7 @@
 package data
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"time"
@@ -49,7 +50,11 @@ func (m MovieModel) Insert(movie *Movie) error {
 	// Create a slice containing the movie genres
 	args := []interface{}{movie.Title, movie.Year, movie.Runtime, pq.Array(movie.Genres)}
 
-	return m.DB.QueryRow(query, args...).Scan(&movie.ID, &movie.CreatedAt, &movie.Version)
+	// create a new context with a 3-second timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	return m.DB.QueryRowContext(ctx, query, args...).Scan(&movie.ID, &movie.CreatedAt, &movie.Version)
 }
 
 func (m MovieModel) Get(id int64) (*Movie, error) {
@@ -64,8 +69,11 @@ func (m MovieModel) Get(id int64) (*Movie, error) {
 
 	var movie Movie
 
+	// Create a context with a 3-second timeout.
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
 	// Use the QueryRow() method to execute the query and scan the returned row into the movie struct.
-	err := m.DB.QueryRow(query, id).Scan(
+	err := m.DB.QueryRowContext(ctx, query, id).Scan(
 		&movie.ID,
 		&movie.CreatedAt,
 		&movie.Title,
@@ -106,9 +114,13 @@ func (m MovieModel) Update(movie *Movie) error {
 		movie.Version,
 	}
 
+	// Create a new context with a 3-second timeout.
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
 	// Execute the query. If no matching row is found, we know that the movie version has changed
 	// or the movie has been deleted, so we return ErrEditConflict.
-	err := m.DB.QueryRow(query, args...).Scan(&movie.Version)
+	err := m.DB.QueryRowContext(ctx, query, args...).Scan(&movie.Version)
 	if err != nil {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
@@ -130,8 +142,12 @@ func (m MovieModel) Delete(id int64) error {
 	DELETE FROM movies
 	WHERE id = $1`
 
+	// Create a new context with a 3-second timeout.
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
 	// Execute the query, passing the id as the value for the placeholder parameter.
-	result, err := m.DB.Exec(query, id)
+	result, err := m.DB.ExecContext(ctx, query, id)
 	if err != nil {
 		return err
 	}
