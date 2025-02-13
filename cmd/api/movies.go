@@ -82,6 +82,40 @@ func (app *application) showMovieHandler(w http.ResponseWriter, r *http.Request)
 	}
 }
 
+func (app *application) listMoviesHandler(w http.ResponseWriter, r *http.Request) {
+	// create a new struct to hold the expected query string parameters
+	var input struct {
+		Title  string
+		Genres []string
+		data.Filters
+	}
+
+	v := validator.New()
+
+	// call the r.URL.Query() method to extract the query string parameters from the request
+	qs := r.URL.Query()
+
+	// use the readString() and readCSV helper to extract the parameters
+	input.Title = app.readString(qs, "title", "")
+	input.Genres = app.readCSV(qs, "genres", []string{})
+
+	// extract the page and page_size query string values, falling back to default values if they are not provided
+	input.Filters.Page = app.readInt(qs, "page", 1, v)
+	input.Filters.PageSize = app.readInt(qs, "page_size", 20, v)
+
+	// extract the sort query string value, falling back to "id" it is not provided, which will imply sorting by ascending ID
+	input.Filters.Sort = app.readString(qs, "sort", "id")
+	// add the supported sort values to the safe list. the "-" prefix indicates that the field should be sorted in descending order
+	input.Filters.SortSafeList = []string{"id", "title", "year", "runtime", "-id", "-title", "-year", "-runtime"}
+
+	if data.ValidateFilters(v, input.Filters); !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	fmt.Fprintf(w, "%+v\n", input)
+}
+
 func (app *application) updateMovieHandler(w http.ResponseWriter, r *http.Request) {
 	// read the id parameter from the URL
 	id, err := app.readIDParam(r)

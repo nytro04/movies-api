@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
 	"github.com/julienschmidt/httprouter"
+	"github.com/nytro04/greenlight/internal/validator"
 )
 
 func (app *application) readIDParam(r *http.Request) (int64, error) {
@@ -88,4 +90,50 @@ func (app *application) readJSON(w http.ResponseWriter, r *http.Request, dst int
 		return errors.New("body must only contain a single JSON value")
 	}
 	return nil
+}
+
+// readString helper returns a string value from the query string, or the provided default value if no key is found.
+func (app *application) readString(qs url.Values, key string, defaultValue string) string {
+	// extract value for a key from the query string, if no key is exist, this will return empty string ""
+	s := qs.Get(key)
+
+	// if no key is found, return the default value
+	if s == "" {
+		return defaultValue
+	}
+
+	// otherwise return the string value
+	return s
+}
+
+func (app *application) readCSV(qs url.Values, key string, defaultValue []string) []string {
+	// extract value for a key from the query string, if no key is exist, this will return empty string ""
+	csv := qs.Get(key)
+
+	if csv == "" {
+		return defaultValue
+	}
+
+	// otherwise parse the value to a []string slice and return it
+	return strings.Split(csv, ",")
+}
+
+func (app *application) readInt(qs url.Values, key string, defaultValue int, v *validator.Validator) int {
+	// extract value for a key from the query string, if no key is exist, this will return empty string ""
+	s := qs.Get(key)
+
+	// if no key is found, return the default value
+	if s == "" {
+		return defaultValue
+	}
+
+	// try to convert the string value to an integer, if it fails, add an error to the validator and return the default value 
+	i, err := strconv.Atoi(s)
+	if err != nil {
+		v.AddError(key, "must be an integer value")
+		return defaultValue
+	}
+
+	// otherwise return the converted integer value
+	return i
 }
