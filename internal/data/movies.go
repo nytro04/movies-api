@@ -100,9 +100,11 @@ func (m MovieModel) Get(id int64) (*Movie, error) {
 func (m MovieModel) GetAll(title string, genres []string, filters Filters) ([]*Movie, error) {
 	// The query to retrieve all movies records. The query uses a WHERE clause to filter the results based on the title and genres.
 	// title will be matched using a case-insensitive search or empty string, and genres will be matched using the @> operator to check if the genres column contains all of the genres in the slice or pass an empty array.
+	// full text search is used to search the title column. to_tsvector('simple', title), splits the title into lexemes eg. "the matrix" -> 'the' 'matrix', we use 'simple' configuration to turn it into lowercase and remove punctuation.
+	// the plainto_tsquery turns title into a formatted query that POSTGRES full text search can understand.
 	query := `SELECT id, created_at, title, year, runtime, genres, version
 	FROM movies
-	WHERE (LOWER(title) = LOWER($1) OR $1 = '')
+	WHERE (to_tsvector('simple, title) @@ plainto_tsquery('simple', $1) LOWER(title) OR $1 = '')
 	AND (genres @> $2 OR $2 = '{}')
 	ORDER BY id`
 
