@@ -41,6 +41,7 @@ type MovieModel struct {
 	DB *sql.DB
 }
 
+// Insert method to create a new movie record
 func (m MovieModel) Insert(movie *Movie) error {
 	query := `
 		INSERT INTO movies (title, year, runtime, genres)
@@ -96,6 +97,56 @@ func (m MovieModel) Get(id int64) (*Movie, error) {
 
 }
 
+func (m MovieModel) GetAll(title string, genres []string, filters Filters) ([]*Movie, error) {
+	// The query to retrieve all movies records.
+	query := `SELECT id, created_at, title, year, runtime, genres, version
+	FROM movies
+	ORDER BY id`
+
+	// Create a new context with a 3-second timeout.
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	// Execute the query. If an error is returned, return it to the calling function.
+	rows, err := m.DB.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	// iniitialize an empty slice to hold the movie records
+	movies := []*Movie{}
+
+	// Iterate through the rows returned by the query.
+	for rows.Next() {
+		// Create a new Movie struct to hold the data for each movie record.
+		var movie Movie
+
+		// Scan the values from the row into the Movie struct.
+		err := rows.Scan(
+			&movie.ID,
+			&movie.CreatedAt,
+			&movie.Title,
+			&movie.Year,
+			&movie.Runtime,
+			pq.Array(&movie.Genres),
+			&movie.Version,
+		)
+		if err != nil {
+			return nil, err
+		}
+		// Append the Movie struct to the slice.
+		movies = append(movies, &movie)
+	}
+
+	// If an error was encountered while iterating through the rows, return it to the calling function.
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return movies, nil
+}
+
+// Update method to update the movie record
 func (m MovieModel) Update(movie *Movie) error {
 	// query for updating the movie record
 	query := `
@@ -132,6 +183,7 @@ func (m MovieModel) Update(movie *Movie) error {
 	return nil
 }
 
+// Delete method to delete the movie record
 func (m MovieModel) Delete(id int64) error {
 	if id < 1 {
 		return ErrRecordNotFound
@@ -174,6 +226,10 @@ func (m MockMovieModel) Insert(movie *Movie) error {
 }
 
 func (m MockMovieModel) Get(id int64) (*Movie, error) {
+	return nil, nil
+}
+
+func (m MockMovieModel) GetAll(title string, genres []string, filters Filters) ([]*Movie, error) {
 	return nil, nil
 }
 

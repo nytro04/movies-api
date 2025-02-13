@@ -108,12 +108,24 @@ func (app *application) listMoviesHandler(w http.ResponseWriter, r *http.Request
 	// add the supported sort values to the safe list. the "-" prefix indicates that the field should be sorted in descending order
 	input.Filters.SortSafeList = []string{"id", "title", "year", "runtime", "-id", "-title", "-year", "-runtime"}
 
+	// validate the filters using the ValidateFilters() helper
 	if data.ValidateFilters(v, input.Filters); !v.Valid() {
 		app.failedValidationResponse(w, r, v.Errors)
 		return
 	}
 
-	fmt.Fprintf(w, "%+v\n", input)
+	// call the GetAll() method on the movies model to retrieve the movies, passing in the various filter parameters
+	movies, err := app.models.Movies.GetAll(input.Title, input.Genres, input.Filters)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	// send a JSON response containing the movie data
+	err = app.writeJSON(w, http.StatusOK, envelope{"movies": movies}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
 }
 
 func (app *application) updateMovieHandler(w http.ResponseWriter, r *http.Request) {
