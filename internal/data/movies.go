@@ -98,17 +98,20 @@ func (m MovieModel) Get(id int64) (*Movie, error) {
 }
 
 func (m MovieModel) GetAll(title string, genres []string, filters Filters) ([]*Movie, error) {
-	// The query to retrieve all movies records.
+	// The query to retrieve all movies records. The query uses a WHERE clause to filter the results based on the title and genres.
+	// title will be matched using a case-insensitive search or empty string, and genres will be matched using the @> operator to check if the genres column contains all of the genres in the slice or pass an empty array.
 	query := `SELECT id, created_at, title, year, runtime, genres, version
 	FROM movies
+	WHERE (LOWER(title) = LOWER($1) OR $1 = '')
+	AND (genres @> $2 OR $2 = '{}')
 	ORDER BY id`
 
 	// Create a new context with a 3-second timeout.
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	// Execute the query. If an error is returned, return it to the calling function.
-	rows, err := m.DB.QueryContext(ctx, query)
+	// Execute the query passing in the title and genres as the placeholders. If an error is returned, return it to the calling function.
+	rows, err := m.DB.QueryContext(ctx, query, title, pq.Array(genres))
 	if err != nil {
 		return nil, err
 	}
