@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/lib/pq"
@@ -102,11 +103,13 @@ func (m MovieModel) GetAll(title string, genres []string, filters Filters) ([]*M
 	// title will be matched using a case-insensitive search or empty string, and genres will be matched using the @> operator to check if the genres column contains all of the genres in the slice or pass an empty array.
 	// full text search is used to search the title column. to_tsvector('simple', title), splits the title into lexemes eg. "the matrix" -> 'the' 'matrix', we use 'simple' configuration to turn it into lowercase and remove punctuation.
 	// the plainto_tsquery turns title into a formatted query that POSTGRES full text search can understand.
-	query := `SELECT id, created_at, title, year, runtime, genres, version
+	// sort the results based on the sort column and direction provided in the filters struct(interpolation is used to insert the column and direction into the query).
+	// add a secondary sort on the movie ID to ensure that the results are returned in a consistent order.
+	query := fmt.Sprintf(`SELECT id, created_at, title, year, runtime, genres, version
 	FROM movies
-	WHERE (to_tsvector('simple, title) @@ plainto_tsquery('simple', $1) LOWER(title) OR $1 = '')
+	WHERE (to_tsvector('simple', title) @@ plainto_tsquery('simple', $1) OR $1 = '')
 	AND (genres @> $2 OR $2 = '{}')
-	ORDER BY id`
+	ORDER BY %s %s, id ASC`, filters.sortColumn(), filters.sortDirection())
 
 	// Create a new context with a 3-second timeout.
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)

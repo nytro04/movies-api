@@ -1,12 +1,36 @@
 package data
 
-import "github.com/nytro04/greenlight/internal/validator"
+import (
+	"strings"
+
+	"github.com/nytro04/greenlight/internal/validator"
+)
 
 type Filters struct {
 	Page         int
 	PageSize     int
 	Sort         string
 	SortSafeList []string
+}
+
+// check that the client provided sort field matches one of the safe values in the SortSafeList
+// if it does, return the field name without the "-" prefix
+// if it doesn't, panic with a message indicating that the client provided an unsafe value
+func (f Filters) sortColumn() string {
+	for _, safeValue := range f.SortSafeList {
+		if f.Sort == safeValue {
+			return strings.TrimPrefix(f.Sort, "-")
+		}
+	}
+	panic("unsafe sort parameter: " + f.Sort)
+}
+
+// Return the sort direction (ASC or DESC) based on the prefix of the Sort field
+func (f Filters) sortDirection() string {
+	if strings.HasPrefix(f.Sort, "-") {
+		return "DESC"
+	}
+	return "ASC"
 }
 
 func ValidateFilters(v *validator.Validator, f Filters) {
