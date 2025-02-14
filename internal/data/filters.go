@@ -13,6 +13,16 @@ type Filters struct {
 	SortSafeList []string
 }
 
+// return the maximum number of records to return based on the page_size parameters
+func (f Filters) limit() int {
+	return f.PageSize
+}
+
+// return the number of records to skip based on the page and page_size parameters
+func (f Filters) offset() int {
+	return (f.Page - 1) * f.PageSize
+}
+
 // check that the client provided sort field matches one of the safe values in the SortSafeList
 // if it does, return the field name without the "-" prefix
 // if it doesn't, panic with a message indicating that the client provided an unsafe value
