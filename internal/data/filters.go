@@ -1,6 +1,7 @@
 package data
 
 import (
+	"math"
 	"strings"
 
 	"github.com/nytro04/greenlight/internal/validator"
@@ -11,6 +12,31 @@ type Filters struct {
 	PageSize     int
 	Sort         string
 	SortSafeList []string
+}
+
+type Metadata struct {
+	CurrentPage  int `json:"current_page,omitempty"`
+	PageSize     int `json:"page_size,omitempty"`
+	FirstPage    int `json:"first_page,omitempty"`
+	LastPage     int `json:"last_page,omitempty"`
+	TotalRecords int `json:"total_records,omitempty"`
+}
+
+// calculateMetadata is a helper function that calculates the metadata for a response
+// based on the total number of records, the current page, and the page size
+func calculateMetadata(totalRecords, page, PageSize int) Metadata {
+	if totalRecords == 0 {
+		// If there are no records, return an empty Metadata struct
+		return Metadata{}
+	}
+
+	return Metadata{
+		CurrentPage:  page,
+		PageSize:     PageSize,
+		FirstPage:    1,
+		LastPage:     int(math.Ceil(float64(totalRecords) / float64(PageSize))),
+		TotalRecords: totalRecords,
+	}
 }
 
 // return the maximum number of records to return based on the page_size parameters
