@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -26,6 +27,12 @@ type config struct {
 		maxOpenConns int
 		maxIdleConns int
 		maxIdleTime  string
+	}
+
+	limiter struct {
+		rps     float64 // requests per second
+		burst   int     // burst
+		enabled bool
 	}
 }
 
@@ -50,6 +57,11 @@ func main() {
 	flag.IntVar(&cfg.db.maxIdleConns, "db-max-idle-conns", 25, "PostgreSQL max idle connections")
 	flag.StringVar(&cfg.db.maxIdleTime, "db-max-idle-time", "15m", "PostgreSQL max connection idle time")
 
+	// Read the rate limiter settings from command-line flags into the config struct.
+	flag.Float64Var(&cfg.limiter.rps, "limiter-rps", 2, "Rate limiter maximu requests per second")
+	flag.IntVar(&cfg.limiter.burst, "limit-burst", 4, "Rte limiter maximum burst")
+	flag.BoolVar(&cfg.limiter.enabled, "limiter-enabled", true, "Enable rate limiter")
+
 	err := godotenv.Load()
 	if err != nil {
 		logger.PrintFatal(err, map[string]string{"message": "Error loading .env file"})
@@ -58,9 +70,12 @@ func main() {
 	var (
 		dbHost = os.Getenv("DB_HOST")
 		// dbPort     = os.Getenv("DB_PORT")
-		dbUser     = os.Getenv("DB_USER")
-		dbPassword = os.Getenv("DB_PASSWORD")
-		dbName     = os.Getenv("DB_NAME")
+		dbUser         = os.Getenv("DB_USER")
+		dbPassword     = os.Getenv("DB_PASSWORD")
+		dbName         = os.Getenv("DB_NAME")
+		limiterRPS     = os.Getenv("LIMITER_RPS")
+		limiterBurst   = os.Getenv("LIMITER_BURST")
+		limiterEnabled = os.Getenv("LIMITER_ENABLED")
 	)
 
 	dsn := fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", dbUser, dbPassword, dbHost, dbName)
@@ -70,6 +85,20 @@ func main() {
 	flag.Parse()
 
 	cfg.db.dsn = dsn
+
+	// add rate limiter settings from environment variables
+	cfg.limiter.rps, err = strconv.ParseFloat(limiterRPS, 64)
+	if err != nil {
+		logger.PrintFatal(err, map[string]string{"message": "Invalid value for LIMITER_RPS"})
+	}
+	cfg.limiter.burst, err = strconv.Atoi(limiterBurst)
+	if err != nil {
+		logger.PrintFatal(err, map[string]string{"message": "Invalid value for LIMITER_BURST"})
+	}
+	cfg.limiter.enabled, err = strconv.ParseBool(limiterEnabled)
+	if err != nil {
+		logger.PrintFatal(err, map[string]string{"message": "Invalid value for LIMITER_ENABLED"})
+	}
 
 	db, err := openDB(cfg)
 	if err != nil {

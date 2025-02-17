@@ -30,6 +30,7 @@ func (app *application) recoverPanic(next http.Handler) http.Handler {
 }
 
 func (app *application) rateLimit(next http.Handler) http.Handler {
+
 	type client struct {
 		limiter  *rate.Limiter
 		lastSeen time.Time
@@ -63,34 +64,37 @@ func (app *application) rateLimit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		// extract the client's IP address from the request
-		ip, _, err := net.SplitHostPort(r.RemoteAddr)
-		if err != nil {
-			app.serverErrorResponse(w, r, err)
-			return
-		}
+		if app.config.limiter.enabled {
 
-		// Lock the mutex to protect the map from concurrent access
-		mu.Lock()
+			ip, _, err := net.SplitHostPort(r.RemoteAddr)
+			if err != nil {
+				app.serverErrorResponse(w, r, err)
+				return
+			}
 
-		// check if the IP address is already in the map. if it's not, create a new rate limiter and add the IP address and limiter to the map
-		if _, found := clients[ip]; !found {
-			// create and add a new client struct to the map if it doesn't already exist
-			clients[ip] = &client{limiter: rate.NewLimiter(2, 4)} // 2 requests per second, with a maximum of 4 requests in a burst
-		}
+			// Lock the mutex to protect the map from concurrent access
+			mu.Lock()
 
-		// Update the last seen time for the client
-		clients[ip].lastSeen = time.Now()
+			// check if the IP address is already in the map. if it's not, create a new rate limiter and add the IP address and limiter to the map
+			if _, found := clients[ip]; !found {
+				// create and add a new client struct to the map if it doesn't already exist
+				clients[ip] = &client{limiter: rate.NewLimiter(rate.Limit(app.config.limiter.rps), app.config.limiter.burst)} // 2 requests per second, with a maximum of 4 requests in a burst
+			}
 
-		// call the .Allow() method on the current rate limiter. if the request isn't allowed, unlock the mutex and
-		// call the rateLimitExceededResponse method to send a 429 Too Many Requests response to the client
-		if !clients[ip].limiter.Allow() {
+			// Update the last seen time for the client
+			clients[ip].lastSeen = time.Now()
+
+			// call the .Allow() method on the current rate limiter. if the request isn't allowed, unlock the mutex and
+			// call the rateLimitExceededResponse method to send a 429 Too Many Requests response to the client
+			if !clients[ip].limiter.Allow() {
+				mu.Unlock()
+				app.rateLimitExceededResponse(w, r)
+				return
+			}
+
+			// unlock the mutex and call the next handler in the chain
 			mu.Unlock()
-			app.rateLimitExceededResponse(w, r)
-			return
 		}
-
-		// unlock the mutex and call the next handler in the chain
-		mu.Unlock()
 
 		next.ServeHTTP(w, r)
 	})
