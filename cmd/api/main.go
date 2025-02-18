@@ -5,8 +5,6 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
-	"log"
-	"net/http"
 	"os"
 	"strconv"
 	"time"
@@ -114,22 +112,28 @@ func main() {
 		models: data.NewModels(db),
 	}
 
-	srv := &http.Server{
-		Addr:         fmt.Sprintf(":%d", cfg.port),
-		Handler:      app.routes(),
-		ErrorLog:     log.New(logger, "", 0),
-		IdleTimeout:  time.Minute,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 30 * time.Second,
+	// call the serve method on the application struct
+	err = app.serve()
+	if err != nil {
+		logger.PrintFatal(err, nil)
 	}
 
-	// Start the server
-	logger.PrintInfo("starting server", map[string]string{
-		"addr": srv.Addr,
-		"env":  cfg.env,
-	})
-	err = srv.ListenAndServe()
-	logger.PrintFatal(err, nil)
+	// srv := &http.Server{
+	// 	Addr:         fmt.Sprintf(":%d", cfg.port),
+	// 	Handler:      app.routes(),
+	// 	ErrorLog:     log.New(logger, "", 0),
+	// 	IdleTimeout:  time.Minute,
+	// 	ReadTimeout:  10 * time.Second,
+	// 	WriteTimeout: 30 * time.Second,
+	// }
+
+	// // Start the server
+	// logger.PrintInfo("starting server", map[string]string{
+	// 	"addr": srv.Addr,
+	// 	"env":  cfg.env,
+	// })
+	// err = srv.ListenAndServe()
+	// logger.PrintFatal(err, nil)
 }
 
 func openDB(cfg config) (*sql.DB, error) {
