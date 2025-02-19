@@ -7,7 +7,7 @@ import (
 
 var (
 	ErrRecordNotFound = errors.New("record not found")
-	ErrEditConflict   = errors.New("edit conflict")
+	ErrEditConflict   = errors.New("edit conflict") // error returned when the version number of the record in the database doesn't match the version number in the request
 )
 
 type Models struct {
@@ -21,11 +21,18 @@ type Models struct {
 		Update(movie *Movie) error
 		Delete(id int64) error
 	}
+
+	Users interface {
+		Insert(user *User) error
+		GetByEmail(email string) (*User, error)
+		Update(user *User) error
+	}
 }
 
 func NewModels(db *sql.DB) Models {
 	return Models{
 		Movies: MovieModel{DB: db},
+		Users:  UserModel{DB: db},
 	}
 }
 
@@ -33,5 +40,6 @@ func NewModels(db *sql.DB) Models {
 func NewMockModels() Models {
 	return Models{
 		Movies: MockMovieModel{},
+		Users:  MockUserModel{},
 	}
 }
