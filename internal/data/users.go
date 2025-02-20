@@ -40,9 +40,9 @@ type password struct {
 	hash      []byte
 }
 
-// calculate the bcrypt hash of a plaintext password and store both the plaintext and hashed versions of the password in the password struct
+// generate the bcrypt hash of a plaintext password and store both the plaintext and hashed versions of the password in the password struct
 func (p *password) HashPassword(plaintextPassword string) error {
-	hash, err := bcrypt.GenerateFromPassword([]byte(plaintextPassword), 12)
+	hash, err := bcrypt.GenerateFromPassword([]byte(plaintextPassword), 12) // use a cost of 12 to generate the bcrypt hash
 	if err != nil {
 		return err
 	}
@@ -67,17 +67,22 @@ func (p *password) Matches(plaintextPassword string) (bool, error) {
 	return true, nil
 }
 
+// validate the email address using the validator package. The email address must be provided and must be a valid email address
 func ValidateEmail(v *validator.Validator, email string) {
 	v.Check(email != "", "email", "must be provided")
 	v.Check(validator.Matches(email, validator.EmailRX), "email", "must be a valid email address")
 }
 
+// validate the plaintext password using the validator package. The password must be at least 8 bytes long and no more than 72 bytes long
 func ValidatePasswordPlaintext(v *validator.Validator, password string) {
 	v.Check(password != "", "password", "must be provided")
 	v.Check(len(password) >= 8, "password", "must be at least 8 bytes long")
 	v.Check(len(password) <= 72, "password", "must not be more than 72 bytes long")
 }
 
+// validate the user data using the validator package. This function will validate the name field is not empty and not more than 500 bytes long, and then
+//
+//	call the ValidateEmail and ValidatePasswordPlaintext helper functions to validate the email address and password
 func ValidateUser(v *validator.Validator, user *User) {
 	v.Check((user.Name != ""), "name", "must be provided")
 	v.Check((len(user.Name) <= 500), "name", "must not be more than 500 bytes long")
