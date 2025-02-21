@@ -78,6 +78,8 @@ func ValidatePasswordPlaintext(v *validator.Validator, password string) {
 	v.Check(password != "", "password", "must be provided")
 	v.Check(len(password) >= 8, "password", "must be at least 8 bytes long")
 	v.Check(len(password) <= 72, "password", "must not be more than 72 bytes long")
+
+	// TODO: Add additional checks for password strength (e.g. requiring a mix of uppercase and lowercase letters, numbers, and symbols)
 }
 
 // validate the user data using the validator package. This function will validate the name field is not empty and not more than 500 bytes long, and then
@@ -100,10 +102,10 @@ func ValidateUser(v *validator.Validator, user *User) {
 	// So we'll use the internalError helper to log a message and return a 500 Internal Server Error response
 
 	// look into making this a custom error type instead of using panic
-	if user.Password.hash != nil {
+	if user.Password.hash == nil {
 		// set error message
-		v.AddError("password", "not not provided")
-		// panic("password hash should be nil")
+		// v.AddError("password", "not not provided")
+		panic("missing password for user")
 	}
 }
 
