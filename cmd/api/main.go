@@ -13,6 +13,7 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/nytro04/greenlight/internal/data"
 	"github.com/nytro04/greenlight/internal/jsonlog"
+	"github.com/nytro04/greenlight/internal/mailer"
 )
 
 const version = "1.0.0"
@@ -26,11 +27,17 @@ type config struct {
 		maxIdleConns int
 		maxIdleTime  string
 	}
-
 	limiter struct {
 		rps     float64 // requests per second
 		burst   int     // burst
 		enabled bool
+	}
+	smtp struct {
+		host     string // SMTP server address
+		port     int    // SMTP port
+		username string // SMTP username
+		password string // SMTP password
+		sender   string // email address to send from
 	}
 }
 
@@ -38,6 +45,7 @@ type application struct {
 	config config
 	logger *jsonlog.Logger
 	models data.Models
+	mailer mailer.Mailer
 }
 
 func main() {
@@ -51,20 +59,33 @@ func main() {
 	// flag.StringVar(&cfg.db.dsn, "db-dsn", "", "PostgreSQL DSN")
 
 	// Read the connection pool settings from command-line flags into the config struct.
+	// The connection pool settings are used to configure the connection pool that the application will use to connect to the PostgreSQL database.
+	// The maxOpenConns setting is used to set the maximum number of open connections in the pool. and the maxIdleConns setting is used to set the maximum number of idle connections in the pool.
+	// The maxIdleTime setting is used to set the maximum amount of time that a connection can remain idle in the pool before it is closed and removed from the pool.
 	flag.IntVar(&cfg.db.maxOpenConns, "db-max-open-conns", 25, "PostgreSQL max open connections")
 	flag.IntVar(&cfg.db.maxIdleConns, "db-max-idle-conns", 25, "PostgreSQL max idle connections")
 	flag.StringVar(&cfg.db.maxIdleTime, "db-max-idle-time", "15m", "PostgreSQL max connection idle time")
 
-	// Read the rate limiter settings from command-line flags into the config struct.
+	// The rate limiter middleware is used to limit the number of requests that a client can make to the API within a given time window.
+	// The rate limiter settings are used to configure the rate limiter middleware. settings from command-line flags into the config struct.
 	flag.Float64Var(&cfg.limiter.rps, "limiter-rps", 2, "Rate limiter maximu requests per second")
 	flag.IntVar(&cfg.limiter.burst, "limit-burst", 4, "Rte limiter maximum burst")
 	flag.BoolVar(&cfg.limiter.enabled, "limiter-enabled", true, "Enable rate limiter")
+
+	// Read the SMTP server settings from command-line flags into the config struct.
+	// The SMTP server settings are used to configure the SMTP server that the application will use to send emails.
+	flag.StringVar(&cfg.smtp.host, "smtp-host", "sandbox.smtp.mailtrap.io", "SMTP host")
+	flag.IntVar(&cfg.smtp.port, "smtp-port", 25, "SMTP port")
+	flag.StringVar(&cfg.smtp.username, "smtp-username", "", "SMTP username")
+	flag.StringVar(&cfg.smtp.password, "smtp-password", "", "SMTP password")
+	flag.StringVar(&cfg.smtp.sender, "smtp-sender", "nytro04@gmail.com", "SMTP sender")
 
 	err := godotenv.Load()
 	if err != nil {
 		logger.PrintFatal(err, map[string]string{"message": "Error loading .env file"})
 	}
 
+	// Read the connection pool settings, rate limiter settings, and other configuration settings from environment variables.
 	var (
 		dbHost = os.Getenv("DB_HOST")
 		// dbPort     = os.Getenv("DB_PORT")
@@ -74,10 +95,17 @@ func main() {
 		limiterRPS     = os.Getenv("LIMITER_RPS")
 		limiterBurst   = os.Getenv("LIMITER_BURST")
 		limiterEnabled = os.Getenv("LIMITER_ENABLED")
+		SMTPHost       = os.Getenv("SMTP_HOST")
+		SMTPPortStr    = os.Getenv("SMTP_PORT")
+		SMTPUsername   = os.Getenv("SMTP_USERNAME")
+		SMTPPassword   = os.Getenv("SMTP_PASSWORD")
+		// SMTPSender     = os.Getenv("SMTP_SENDER")
 	)
 
+	// Construct the PostgreSQL DSN from the environment variables.
 	dsn := fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", dbUser, dbPassword, dbHost, dbName)
 
+	// construct the PostgreSQL DSN from the terminal flags
 	flag.StringVar(&cfg.db.dsn, "db-dsn", dsn, "PostgreSQL DSN")
 
 	flag.Parse()
@@ -98,6 +126,7 @@ func main() {
 		logger.PrintFatal(err, map[string]string{"message": "Invalid value for LIMITER_ENABLED"})
 	}
 
+	// open a connection to the database and defer the close
 	db, err := openDB(cfg)
 	if err != nil {
 		logger.PrintFatal(err, nil)
@@ -106,10 +135,19 @@ func main() {
 	defer db.Close()
 	logger.PrintInfo("database connection pool established", nil)
 
+	// convert the SMTP port from a string to an integer
+	SMTPPort, err := strconv.Atoi(SMTPPortStr)
+	if err != nil {
+		logger.PrintError(err, map[string]string{"message": "Invalid value for SMTP_PORT"})
+	}
+
+	// create a new application struct and pass all the dependencies
 	app := &application{
 		config: cfg,
 		logger: logger,
 		models: data.NewModels(db),
+		// mailer: mailer.New(cfg.smtp.host, cfg.smtp.port, cfg.smtp.username, cfg.smtp.password, cfg.smtp.sender), // use this when using command line flags
+		mailer: mailer.New(SMTPHost, SMTPPort, SMTPUsername, SMTPPassword, cfg.smtp.sender), // use this when using environment variables
 	}
 
 	// call the serve method on the application struct
@@ -118,24 +156,9 @@ func main() {
 		logger.PrintFatal(err, nil)
 	}
 
-	// srv := &http.Server{
-	// 	Addr:         fmt.Sprintf(":%d", cfg.port),
-	// 	Handler:      app.routes(),
-	// 	ErrorLog:     log.New(logger, "", 0),
-	// 	IdleTimeout:  time.Minute,
-	// 	ReadTimeout:  10 * time.Second,
-	// 	WriteTimeout: 30 * time.Second,
-	// }
-
-	// // Start the server
-	// logger.PrintInfo("starting server", map[string]string{
-	// 	"addr": srv.Addr,
-	// 	"env":  cfg.env,
-	// })
-	// err = srv.ListenAndServe()
-	// logger.PrintFatal(err, nil)
 }
 
+// openDB opens a new database connection using the provided DSN. It returns a sql.DB connection pool.
 func openDB(cfg config) (*sql.DB, error) {
 	// Open a sql.DB connection pool
 	db, err := sql.Open("postgres", cfg.db.dsn)
