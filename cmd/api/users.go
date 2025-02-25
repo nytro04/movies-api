@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 
 	"github.com/nytro04/greenlight/internal/data"
@@ -59,25 +58,14 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// launch a goroutine which runs an anonymous function that sends the welcome email to the user
-	go func() {
-
-		// Run a deferred function which uses recover() to catch any runtime panics and log the error using the application logger
-		// instead of terminating the application
-		defer func ()  {
-			if err := recover(); err != nil {
-				app.logger.PrintError(fmt.Errorf("%s", err), nil)
-			}
-		}()
-
-		// call the Send method on our Mailer, passing in the user's email address, the name of the email template file, and the user struct
-		// the Send method will render the email template, and then send the email to the user using the SMTP server settings
+	// Use the background helper to execute an anonymous function that sends a welcome email to the user in the background
+	app.background(func() {
 		err = app.mailer.Send(user.Email, "user_welcome.go.tmpl", user)
 		if err != nil {
 			app.logger.PrintError(err, nil)
 			return
 		}
-	}()
+	})
 
 	err = app.writeJSON(w, http.StatusAccepted, envelope{"user": user}, nil)
 	if err != nil {

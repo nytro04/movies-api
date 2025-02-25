@@ -171,3 +171,27 @@ func (app *application) readInt(qs url.Values, key string, defaultValue int, v *
 	// otherwise return the converted integer value
 	return i
 }
+
+// The background helper method is used to start a background goroutine for a given function. This is useful for running background tasks that do not need to block the main application thread.
+// The method uses a deferred function to recover from any runtime panics and log the error using the application logger, instead of terminating the application.
+func (app *application) background(fn func()) {
+	// Increment the WaitGroup counter
+	app.wg.Add(1)
+
+	// Run a deferred function which uses recover() to catch any runtime panics and log the error using the application logger
+	// instead of terminating the application
+	go func() {
+
+		// Use defer to decrement the WaitGroup counter before the goroutine returns
+		defer app.wg.Done()
+
+		defer func() {
+			// Recover from any runtime panics and log the error using the application logger
+			if err := recover(); err != nil {
+				app.logger.PrintError(fmt.Errorf("%s", err), nil)
+			}
+		}()
+		// Execute the arbitrary function that was passed in as an argument
+		fn()
+	}()
+}

@@ -43,11 +43,23 @@ func (app *application) serve() error {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		// call the Shutdown() method on our server, passing in the context. this will gracefully shutdown the server without interrupting any active connections
-		// if the context deadline is exceeded, the Shutdown() method will return a context.Canceled error (or other context-related errors) which will be sent to the shutdownError channel
-		// if the server is able to shut down before the context deadline is exceeded, any error returned by the Shutdown() method will be nil (i.e. the server shut down successfully)
-		// in either case, the error returned by Shutdown() is sent to the shutdownError channel for logging and debugging purposes
-		shutdownError <- srv.Shutdown(ctx)
+		// call the shutdown() method, but we only send on the shutdownError channel if it returns an error
+		err := srv.Shutdown(ctx)
+		if err != nil {
+			shutdownError <- err
+		}
+
+		// log a message to say that the shutdown process has completed
+		app.logger.PrintInfo("completing background tasks", map[string]string{"addr": srv.Addr})
+
+		// Call the Wait() method on the WaitGroup to block until all goroutines have finished.
+		// This is a safety measure to ensure that all background tasks have completed before the main() function exits.
+		// If we don't do this, any remaining background tasks will be terminated abruptly when the main() function exits.
+		// Then we return nil on the shutdownError channel to indicate that the shutdown process completed successfully.
+		// This is important because the main() function will block until it receives a value from the shutdownError channel.
+		// If we don't send a value, the main() function will block indefinitely, which will prevent the application from exiting.
+		app.wg.Wait()
+		shutdownError <- nil
 	}()
 
 	// log a starting server message
