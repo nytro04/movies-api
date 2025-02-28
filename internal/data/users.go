@@ -2,6 +2,7 @@ package data
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"errors"
 	"time"
@@ -214,6 +215,55 @@ func (m UserModel) Update(user *User) error {
 	return nil
 }
 
+// This method will retrieve the user details based on the token hash, scope,
+// It will return the user details if a matching record is found, or an error if no matching record is found
+func (m UserModel) GetTokenUser(tokenScope, tokenPlaintext string) (*User, error) {
+	// hash the plaintext token using the SHA-256 algorithm, returning a 32-byte array
+	tokenHash := sha256.Sum256([]byte(tokenPlaintext))
+
+	// query to retrieve the user details based on the token hash, scope and expiry time
+	query := `
+		SELECT users.id, users.created_at, users.name, users.email, users.password_hash, users.activated, users.version
+		FROM users
+		INNER JOIN tokens
+		ON users.id = tokens.user_id
+		WHERE tokens.hash = $1
+		AND tokens.scope = $2
+		AND tokens.expiry > $3`
+
+	// create a slice containing the query arguments. The token hash is converted to a byte slice using the [:] operator
+	// because the pq driver expects a byte slice. we pass the current time against the token expiry time to check if the token is still valid
+	args := []interface{}{tokenHash[:], tokenScope, time.Now()}
+
+	var user User
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	// execute the query and scan the returned values into the user struct, returning ErrRecordNotFound if no matching record is found
+	err := m.DB.QueryRowContext(ctx, query, args...).Scan(
+		&user.ID,
+		&user.CreatedAt,
+		&user.Name,
+		&user.Email,
+		&user.Password.hash,
+		&user.Activated,
+		&user.Version,
+	)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return nil, ErrRecordNotFound
+		default:
+			return nil, err
+		}
+	}
+
+	// return matching user
+	return &user, nil
+}
+
 // Mock data for testing
 type MockUserModel struct{}
 
@@ -227,4 +277,8 @@ func (m MockUserModel) GetByEmail(email string) (*User, error) {
 
 func (m MockUserModel) Update(user *User) error {
 	return nil
+}
+
+func (m MockUserModel) GetTokenUser(tokenScope, tokenPlaintext string) (*User, error) {
+	return nil, nil
 }
