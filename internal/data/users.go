@@ -53,7 +53,7 @@ func (p *password) HashPassword(plaintextPassword string) error {
 	return nil
 }
 
-// check if a plaintext password matches the hashed password stored in the password struct. This method returns true if the passwords match, or false if they do not
+// check if a plaintext password matches the hashed password. It returns true if the passwords match, or false if they do not
 func (p *password) Matches(plaintextPassword string) (bool, error) {
 	err := bcrypt.CompareHashAndPassword(p.hash, []byte(plaintextPassword))
 	if err != nil {

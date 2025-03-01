@@ -55,6 +55,12 @@ func (app *application) failedValidationResponse(w http.ResponseWriter, r *http.
 	app.errorResponse(w, r, http.StatusUnprocessableEntity, errors)
 }
 
+// invalidCredentialsResponse method sends a 401 Unauthorized response to the client when the client provides invalid authentication credentials.
+func (app *application) invalidCredentialsResponse(w http.ResponseWriter, r *http.Request) {
+	message := "invalid authentication credentials"
+	app.errorResponse(w, r, http.StatusUnauthorized, message)
+}
+
 // editConflictResponse method sends a 409 Conflict response to the client when an edit conflict is detected when trying to update a record in the database that has been modified since it was last fetched.
 func (app *application) editConflictResponse(w http.ResponseWriter, r *http.Request) {
 	message := "unable to update the record due to an edit conflict, please try again"

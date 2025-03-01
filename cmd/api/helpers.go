@@ -64,7 +64,7 @@ func (app *application) readJSON(w http.ResponseWriter, r *http.Request, dst int
 
 	// limit the size of the request body to 1MB
 	maxBytes := 1_048_576
-
+	// use the MaxBytesReader() function to limit the size of the request body to 1MB. If the request body is larger than this, the server will respond with a 413 Payload Too Large response.
 	r.Body = http.MaxBytesReader(w, r.Body, int64(maxBytes))
 	// initialize the json decoder, and call DisallowUnknownFields() method on it to and return and error for JSON fields which
 	// cannot be matched to a destination instead of being silently ignored.

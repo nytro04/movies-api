@@ -13,18 +13,19 @@ import (
 
 // Define constants for the token scope values
 const (
-	ScopeActivation = "activation"
+	ScopeActivation     = "activation"
+	ScopeAuthentication = "authentication"
 )
 
 // Define a Token struct to hold the data for a single token. This will be used to read and write token data to and from the database
 // The Plaintext field will store the plaintext version of the token, which will be sent to the user in the activation email.
 // The Hash field will store the hashed version of the token, which will be stored in the database.
 type Token struct {
-	Plaintext string
-	Hash      []byte
-	UserID    int64     // the ID of the user the token belongs to
-	Expiry    time.Time // the expiry time of the token
-	Scope     string    // the scope of the token
+	Plaintext string    `json:"token"`
+	Hash      []byte    `json:"-"`
+	UserID    int64     `json:"-"`      // the ID of the user the token belongs to
+	Expiry    time.Time `json:"expiry"` // the expiry time of the token
+	Scope     string    `json:"-"`      // the scope of the token
 }
 
 // generateToken generates a new token for the user with the provided user ID, expiry time, and scope.
