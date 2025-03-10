@@ -72,3 +72,23 @@ func (app *application) rateLimitExceededResponse(w http.ResponseWriter, r *http
 	message := "rate limit exceeded"
 	app.errorResponse(w, r, http.StatusTooManyRequests, message)
 }
+
+// invalidAuthenticationTokenResponse method sends a 401 Unauthorized response to the client when the client provides an invalid or missing authentication token.
+func (app *application) invalidAuthenticationTokenResponse(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("WWW-Authenticate", "Bearer")
+
+	message := "invalid or missing authentication token"
+	app.errorResponse(w, r, http.StatusUnauthorized, message)
+}
+
+// authenticationRequiredResponse method sends a 401 Unauthorized response to the client when the client tries to access a protected route without providing valid authentication credentials.
+func (app *application) authenticationRequiredResponse(w http.ResponseWriter, r *http.Request) {
+	message := "you must be authenticated to access this resource"
+	app.errorResponse(w, r, http.StatusUnauthorized, message)
+}
+
+// inactivateAccountResponse method sends a 403 Forbidden response to the client when the client tries to access a protected route using an account that has not been activated.
+func (app *application) inactivateAccountResponse(w http.ResponseWriter, r *http.Request) {
+	message := "your account must be activated to access this resource"
+	app.errorResponse(w, r, http.StatusForbidden, message)
+}

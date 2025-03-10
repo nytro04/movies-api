@@ -41,6 +41,15 @@ type password struct {
 	hash      []byte
 }
 
+// Define an AnonymousUser variable.
+// this represent an inactivated user with no email, password or id
+var AnonymousUser = &User{}
+
+// Check if the user instance is the AnonymousUser
+func (u *User) IsAnonymous() bool {
+	return u == AnonymousUser
+}
+
 // generate the bcrypt hash of a plaintext password and store both the plaintext and hashed versions of the password in the password struct
 func (p *password) HashPassword(plaintextPassword string) error {
 	hash, err := bcrypt.GenerateFromPassword([]byte(plaintextPassword), 12) // use a cost of 12 to generate the bcrypt hash

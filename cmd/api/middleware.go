@@ -1,15 +1,20 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/nytro04/greenlight/internal/data"
+	"github.com/nytro04/greenlight/internal/validator"
 	"golang.org/x/time/rate"
 )
 
+// recoverPanic is a middleware function that recovers from panics in the application and returns a 500 Internal Server Error response to the client.
 func (app *application) recoverPanic(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// defer a function to recover from a panic.
@@ -29,6 +34,7 @@ func (app *application) recoverPanic(next http.Handler) http.Handler {
 	})
 }
 
+// rateLimit is a middleware function that rate-limits the number of requests that clients can make to specific endpoints.
 func (app *application) rateLimit(next http.Handler) http.Handler {
 
 	type client struct {
@@ -98,4 +104,101 @@ func (app *application) rateLimit(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+// authenticate is a middleware function that checks whether a request is authorized by looking for a valid authentication token in the Authorization header.
+// If the request is authorized, the user details are added to the request context. If the request is not authorized, a 401 Unauthorized response is sent to the client.
+func (app *application) authenticate(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// add the "Vary: Authorization" header to the response. This acts as a hint to any caching middleware
+		// that the response will vary depending on the value of the Authorization header in the request.
+		w.Header().Add("Vary", "Authorization")
+
+		// retrieve the value of the Authorization header from the request. This will return an empty string "" if the header is not present
+		authorizationHeader := r.Header.Get("Authorization")
+
+		// if there is no Authorization header, call the contextSetUser() method to add the AnonymousUser to the request context
+		// and then call the next handler in the chain and return without executing any of the code below
+		if authorizationHeader == "" {
+			r = app.contextSetUser(r, data.AnonymousUser)
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// we expect the value of the Authorization header to be in the format "Bearer <token>", we try split this into two parts"
+		// if the header is not in the expected format, we return a 401 Unauthorized response.
+
+		headerParts := strings.Split(authorizationHeader, " ")
+		if len(headerParts) != 2 || headerParts[0] != "Bearer" {
+			app.invalidAuthenticationTokenResponse(w, r)
+			return
+		}
+
+		// extract the actual token from the header parts
+		token := headerParts[1]
+
+		// validate the token to make sure it is in a sensible format
+		// if the token is invalid, return a 401 Unauthorized response
+		v := validator.New()
+		if data.ValidateTokenPlaintext(v, token); !v.Valid() {
+			app.invalidAuthenticationTokenResponse(w, r)
+			return
+		}
+
+		// retrieve the details of the user associated with the authentication token, and handle any errors
+		user, err := app.models.Users.GetTokenUser(data.ScopeAuthentication, token)
+		if err != nil {
+			switch {
+			case errors.Is(err, data.ErrRecordNotFound):
+				app.invalidAuthenticationTokenResponse(w, r)
+			default:
+				app.serverErrorResponse(w, r, err)
+			}
+			return
+		}
+
+		// call the contextSetUser() method to add the user information to the request context
+		r = app.contextSetUser(r, user)
+
+		// call the next handler in the chain
+		next.ServeHTTP(w, r)
+
+	})
+}
+
+// requireActivatedUser is a middleware function that checks if the user is not anonymous
+func (app *application) requireAuthenticatedUser(next http.HandlerFunc) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// extract the user information from the request context
+		user := app.contextGetUser(r)
+
+		// if the user is anonymous, call the authenticationRequiredResponse method and return
+		if user.IsAnonymous() {
+			app.authenticationRequiredResponse(w, r)
+			return
+		}
+
+		// call the next handler in the chain
+		next.ServeHTTP(w, r)
+
+	})
+}
+
+func (app *application) requireActivatedUser(next http.HandlerFunc) http.HandlerFunc {
+	// rather than returning an http.HandlerFunc, we assign the handler function to a variable
+	fn := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user := app.contextGetUser(r)
+
+		// if the user account is not activated, call the inactivateAccountResponse method and return
+		if !user.Activated {
+			app.inactivateAccountResponse(w, r)
+			return
+		}
+
+		// call the next handler in the chain
+		next.ServeHTTP(w, r)
+	})
+
+	// wrap the handler function in the requireAuthenticatedUser middleware and return it
+	return app.requireAuthenticatedUser(fn)
 }
