@@ -166,7 +166,7 @@ func (app *application) authenticate(next http.Handler) http.Handler {
 	})
 }
 
-// requireActivatedUser is a middleware function that checks if the user is not anonymous
+// requireAuthenticatedUser is a middleware function that checks if the user is not anonymous
 func (app *application) requireAuthenticatedUser(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// extract the user information from the request context
@@ -184,6 +184,8 @@ func (app *application) requireAuthenticatedUser(next http.HandlerFunc) http.Han
 	})
 }
 
+// requireActivatedUser is a middleware function that checks if the user account is activated
+// before calling the next handler in the chain, this will be the requireAuthenticatedUser middleware
 func (app *application) requireActivatedUser(next http.HandlerFunc) http.HandlerFunc {
 	// rather than returning an http.HandlerFunc, we assign the handler function to a variable
 	fn := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -201,4 +203,34 @@ func (app *application) requireActivatedUser(next http.HandlerFunc) http.Handler
 
 	// wrap the handler function in the requireAuthenticatedUser middleware and return it
 	return app.requireAuthenticatedUser(fn)
+}
+
+// requirePermission is a middleware function that checks if the user has the required permission to access a particular route
+// the middleware function requires the user to be authenticated and activated(by wrapping the requireActivatedUser around requirePermission i.e app.requireActivatedUser(fn))
+//
+//	before checking the permissions of the user
+func (app *application) requirePermission(code string, next http.HandlerFunc) http.HandlerFunc {
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		// extract the user from the request context
+		user := app.contextGetUser(r)
+
+		// get the slice of permissions for the user
+		permissions, err := app.models.Permissions.GetAllForUser(user.ID)
+		if err != nil {
+			app.serverErrorResponse(w, r, err)
+			return
+		}
+
+		// check if the user has the required permission
+		if !permissions.Include(code) {
+			app.notPermittedResponse(w, r)
+			return
+		}
+
+		// call the next handler in the chain
+		next.ServeHTTP(w, r)
+	}
+
+	// wrap the handler function in the requireActivatedUser middleware and return it
+	return app.requireActivatedUser(fn)
 }
