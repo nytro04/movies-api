@@ -35,21 +35,27 @@ type Models struct {
 		Insert(token *Token) error
 		DeleteAllForUser(scope string, userID int64) error
 	}
+
+	Permissions interface {
+		GetAllForUser(UserID int64) (Permissions, error)
+	}
 }
 
 func NewModels(db *sql.DB) Models {
 	return Models{
-		Movies: MovieModel{DB: db},
-		Users:  UserModel{DB: db},
-		Tokens: TokenModel{DB: db},
+		Movies:      MovieModel{DB: db},
+		Users:       UserModel{DB: db},
+		Tokens:      TokenModel{DB: db},
+		Permissions: PermissionModel{DB: db},
 	}
 }
 
 // helper function which returns models instance containing the modal models only for testing
 func NewMockModels() Models {
 	return Models{
-		Movies: MockMovieModel{},
-		Users:  MockUserModel{},
-		Tokens: MockTokenModel{},
+		Movies:      MockMovieModel{},
+		Users:       MockUserModel{},
+		Tokens:      MockTokenModel{},
+		Permissions: PermissionModel{},
 	}
 }
