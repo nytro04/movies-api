@@ -255,6 +255,18 @@ func (app *application) enableCORS(next http.Handler) http.Handler {
 			for i := range app.config.cors.trustedOrigins {
 				if origin == app.config.cors.trustedOrigins[i] {
 					w.Header().Set("Access-Control-Allow-Origin", origin)
+
+					// if the request method is OPTIONS and has an Access-Control-Request-Method header, then we know this is a preflight request
+					// in this case, we set the Access-Control-Allow-Methods and Access-Control-Allow-Headers headers on the response
+					// and return a 200 OK status code to indicate that the client is allowed to make the request
+					if r.Method == http.MethodOptions && r.Header.Get("Access-Control-Request-Method") != "" {
+						// set the Access-Control-Allow-Methods and Access-Control-Allow-Headers headers on the response
+						w.Header().Set("Access-Control-Allow-Methods", "OPTIONS, PUT, PATCH, DELETE")
+						w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+
+						w.WriteHeader(http.StatusOK)
+						return
+					}
 					break
 				}
 			}
