@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -39,6 +40,10 @@ type config struct {
 		username string // SMTP username
 		password string // SMTP password
 		sender   string // email address to send from
+	}
+
+	cors struct {
+		trustedOrigins []string
 	}
 }
 
@@ -82,6 +87,14 @@ func main() {
 	flag.StringVar(&cfg.smtp.password, "smtp-password", "", "SMTP password")
 	flag.StringVar(&cfg.smtp.sender, "smtp-sender", "nytro04@gmail.com", "SMTP sender")
 
+	// use teh flag.Func to process the cors-trusted-origins flag. use strings fields to split the space-separated list of origins into a slice of strings and assign it to the config struct.
+	// if the flag is not provided, i.e empty string, white space, the trustedOrigins field will be an empty slice.
+	// The CORS settings are used to configure Cross-Origin Resource Sharing (CORS) for the API server.
+	flag.Func("cors-trusted-origins", "Trusted CORS origins (space-separated)", func(val string) error {
+		cfg.cors.trustedOrigins = strings.Fields(val)
+		return nil
+	})
+
 	err := godotenv.Load()
 	if err != nil {
 		logger.PrintFatal(err, map[string]string{"message": "Error loading .env file"})
@@ -91,16 +104,17 @@ func main() {
 	var (
 		dbHost = os.Getenv("DB_HOST")
 		// dbPort     = os.Getenv("DB_PORT")
-		dbUser         = os.Getenv("DB_USER")
-		dbPassword     = os.Getenv("DB_PASSWORD")
-		dbName         = os.Getenv("DB_NAME")
-		limiterRPS     = os.Getenv("LIMITER_RPS")
-		limiterBurst   = os.Getenv("LIMITER_BURST")
-		limiterEnabled = os.Getenv("LIMITER_ENABLED")
-		SMTPHost       = os.Getenv("SMTP_HOST")
-		SMTPPortStr    = os.Getenv("SMTP_PORT")
-		SMTPUsername   = os.Getenv("SMTP_USERNAME")
-		SMTPPassword   = os.Getenv("SMTP_PASSWORD")
+		dbUser             = os.Getenv("DB_USER")
+		dbPassword         = os.Getenv("DB_PASSWORD")
+		dbName             = os.Getenv("DB_NAME")
+		limiterRPS         = os.Getenv("LIMITER_RPS")
+		limiterBurst       = os.Getenv("LIMITER_BURST")
+		limiterEnabled     = os.Getenv("LIMITER_ENABLED")
+		SMTPHost           = os.Getenv("SMTP_HOST")
+		SMTPPortStr        = os.Getenv("SMTP_PORT")
+		SMTPUsername       = os.Getenv("SMTP_USERNAME")
+		SMTPPassword       = os.Getenv("SMTP_PASSWORD")
+		CORSTrustedOrigins = os.Getenv("CORS_TRUSTED_ORIGINS")
 		// SMTPSender     = os.Getenv("SMTP_SENDER")
 	)
 
@@ -110,9 +124,14 @@ func main() {
 	// construct the PostgreSQL DSN from the terminal flags
 	flag.StringVar(&cfg.db.dsn, "db-dsn", dsn, "PostgreSQL DSN")
 
+	// Parse the command-line flags
 	flag.Parse()
 
+	// assign cgf.db.dsn to the dsn variable
 	cfg.db.dsn = dsn
+
+	// assign the trusted origins to the config struct
+	cfg.cors.trustedOrigins = strings.Fields(CORSTrustedOrigins)
 
 	// add rate limiter settings from environment variables
 	cfg.limiter.rps, err = strconv.ParseFloat(limiterRPS, 64)

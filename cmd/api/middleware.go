@@ -234,3 +234,32 @@ func (app *application) requirePermission(code string, next http.HandlerFunc) ht
 	// wrap the handler function in the requireActivatedUser middleware and return it
 	return app.requireActivatedUser(fn)
 }
+
+func (app *application) enableCORS(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// w.Header().Set("Access-Control-Allow-Origin", "*")
+
+		// add the "Vary: Origin" header to the response. This acts as a hint to any caching middleware
+		// that the response will vary depending on the value of the Origin header in the request. This is important
+		// because it means that the response will not be cached if the Origin header changes between requests
+		w.Header().Add("Vary", "Origin")
+
+		// get the value of the Origin header from the request. This will return an empty string if the header is not present
+		origin := r.Header.Get("Origin")
+
+		// if the Origin header is not present, the request is same-origin and we don't need to do anything
+		if origin != "" {
+			// loop through the list of trusted origins and check if the request Origin header matches any of them
+			// if there is a match, set the Access-Control-Allow-Origin header on the response with the value of the Origin header
+			// this indicates that the client is allowed to make requests from that origin
+			for i := range app.config.cors.trustedOrigins {
+				if origin == app.config.cors.trustedOrigins[i] {
+					w.Header().Set("Access-Control-Allow-Origin", origin)
+					break
+				}
+			}
+		}
+		// call the next handler in the chain
+		next.ServeHTTP(w, r)
+	})
+}
