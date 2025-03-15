@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"database/sql"
+	"expvar"
 	"flag"
 	"fmt"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -161,6 +163,24 @@ func main() {
 	if err != nil {
 		logger.PrintError(err, map[string]string{"message": "Invalid value for SMTP_PORT"})
 	}
+
+	// add a version variable to the expvar package to expose the application version
+	expvar.NewString("version").Set(version)
+
+	// publish the number of goroutines to the expvar package
+	expvar.Publish("goroutines", expvar.Func(func() any {
+		return runtime.NumGoroutine()
+	}))
+
+	// publish the database statistics to the expvar package
+	expvar.Publish("database", expvar.Func(func() any {
+		return db.Stats()
+	}))
+
+	// publish the current unix timestamp to the expvar package
+	expvar.Publish("timestamp", expvar.Func(func() any {
+		return time.Now().Unix()
+	}))
 
 	// create a new application struct and pass all the dependencies
 	app := &application{
