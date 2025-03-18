@@ -124,7 +124,7 @@ func main() {
 	dsn := fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", dbUser, dbPassword, dbHost, dbName)
 
 	// construct the PostgreSQL DSN from the terminal flags
-	flag.StringVar(&cfg.db.dsn, "db-dsn", dsn, "PostgreSQL DSN")
+	flag.StringVar(&cfg.db.dsn, "db-dsn", "", "PostgreSQL DSN")
 
 	// Parse the command-line flags
 	flag.Parse()
