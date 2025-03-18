@@ -49,7 +49,7 @@ func (m MovieModel) Insert(movie *Movie) error {
 		VALUES ($1, $2, $3, $4)
 		RETURNING id, created_at, version`
 
-	// Create a slice containing the movie 
+	// Create a slice containing the movie
 	args := []interface{}{movie.Title, movie.Year, movie.Runtime, pq.Array(movie.Genres)}
 
 	// create a new context with a 3-second timeout
