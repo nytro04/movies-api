@@ -20,7 +20,11 @@ import (
 	"github.com/nytro04/greenlight/internal/mailer"
 )
 
-const version = "1.0.0"
+// buildTime is a string containing the date and time at which the binary was built.
+var (
+	buildTime string
+	version   string
+)
 
 type config struct {
 	port int
@@ -97,6 +101,9 @@ func main() {
 		return nil
 	})
 
+	// create a new version boolean flag with a default value of false
+	displayVersion := flag.Bool("version", false, "Display version and exit")
+
 	err := godotenv.Load()
 	if err != nil {
 		logger.PrintFatal(err, map[string]string{"message": "Error loading .env file"})
@@ -128,6 +135,13 @@ func main() {
 
 	// Parse the command-line flags
 	flag.Parse()
+
+	// if the version flag is true, print the version and exit
+	if *displayVersion {
+		fmt.Printf("Version:\t%s\n", version)
+		fmt.Printf("Build time:\t%s\n", buildTime)
+		os.Exit(0)
+	}
 
 	// assign cgf.db.dsn to the dsn variable
 	cfg.db.dsn = dsn

@@ -22,6 +22,7 @@ go.work
 .idea/
 .vscode/
 *.swp
+*.DS_Store
 
 # Logs
 *.log
@@ -29,6 +30,7 @@ go.work
 # Build directories
 /bin/
 /build/
+
 
 .env
 .envrc
