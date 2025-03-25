@@ -112,7 +112,7 @@ func main() {
 	// Read the connection pool settings, rate limiter settings, and other configuration settings from environment variables.
 	var (
 		dbHost = os.Getenv("DB_HOST")
-		// dbPort     = os.Getenv("DB_PORT")
+		// dbPort             = os.Getenv("DB_PORT")
 		dbUser             = os.Getenv("DB_USER")
 		dbPassword         = os.Getenv("DB_PASSWORD")
 		dbName             = os.Getenv("DB_NAME")
@@ -129,6 +129,7 @@ func main() {
 
 	// Construct the PostgreSQL DSN from the environment variables.
 	dsn := fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", dbUser, dbPassword, dbHost, dbName)
+	// dsn := fmt.Sprintf("host=db user=%s password=%s port=%s dbname=%s sslmode=disable", dbUser, dbPassword, dbName, dbPort)
 
 	// construct the PostgreSQL DSN from the terminal flags
 	flag.StringVar(&cfg.db.dsn, "db-dsn", "", "PostgreSQL DSN")
@@ -166,7 +167,7 @@ func main() {
 	// open a connection to the database and defer the close
 	db, err := openDB(cfg)
 	if err != nil {
-		logger.PrintFatal(err, nil)
+		logger.PrintFatal(err, map[string]string{"message": "Error opening database connection"})
 	}
 
 	defer db.Close()
@@ -208,7 +209,7 @@ func main() {
 	// call the serve method on the application struct
 	err = app.serve()
 	if err != nil {
-		logger.PrintFatal(err, nil)
+		logger.PrintFatal(err, map[string]string{"message": "server shutdown with error"})
 	}
 
 }
