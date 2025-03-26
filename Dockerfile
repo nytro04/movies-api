@@ -10,10 +10,10 @@ COPY . .
 RUN go mod download && go mod verify && go mod tidy && go mod vendor
 
 # build the go app
-RUN GOOS=linux GOARCH=amd64/linux go build -o api ./cmd/api
+RUN GOOS=linux GOARCH=amd64 go build -o api ./cmd/api
 
 # Expose port 4000 to the outside world
-EXPOSE 8888
+EXPOSE 4000
 
 # Command to run the executable
-# CMD [./cmd/api]
+CMD [./cmd/api]
