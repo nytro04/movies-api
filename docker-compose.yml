@@ -9,7 +9,7 @@ services:
     ports:
       - '4000:4000'
     volumes:
-      - .:/usr/src/app
+      - .:/app
     depends_on:
       - greenlight_db
     command: go run ./cmd/api
