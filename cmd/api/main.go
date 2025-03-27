@@ -104,9 +104,11 @@ func main() {
 	// create a new version boolean flag with a default value of false
 	displayVersion := flag.Bool("version", false, "Display version and exit")
 
-	err := godotenv.Load()
-	if err != nil {
-		logger.PrintError(err, map[string]string{"message": "Error loading .env file"})
+	if cfg.env == "development" {
+		err := godotenv.Load()
+		if err != nil {
+			logger.PrintFatal(err, map[string]string{"message": "Error loading .env file"})
+		}
 	}
 
 	// Read the connection pool settings, rate limiter settings, and other configuration settings from environment variables.
@@ -151,6 +153,7 @@ func main() {
 	cfg.cors.trustedOrigins = strings.Fields(CORSTrustedOrigins)
 
 	// add rate limiter settings from environment variables
+	var err error
 	cfg.limiter.rps, err = strconv.ParseFloat(limiterRPS, 64)
 	if err != nil {
 		logger.PrintFatal(err, map[string]string{"message": "Invalid value for LIMITER_RPS"})
