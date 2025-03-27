@@ -106,7 +106,7 @@ func main() {
 
 	err := godotenv.Load()
 	if err != nil {
-		logger.PrintFatal(err, map[string]string{"message": "Error loading .env file"})
+		logger.PrintError(err, map[string]string{"message": "Error loading .env file"})
 	}
 
 	// Read the connection pool settings, rate limiter settings, and other configuration settings from environment variables.
