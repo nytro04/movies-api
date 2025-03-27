@@ -66,8 +66,8 @@ func main() {
 
 	logger := jsonlog.New(os.Stdout, jsonlog.LevelInfo)
 
-	flag.IntVar(&cfg.port, "port", 4000, "API server port")
-	flag.StringVar(&cfg.env, "env", "development", "Environment (development|staging|production)")
+	// flag.IntVar(&cfg.port, "port", 4000, "API server port")
+	// flag.StringVar(&cfg.env, "env", "development", "Environment (development|staging|production)")
 
 	// flag.StringVar(&cfg.db.dsn, "db-dsn", "", "PostgreSQL DSN")
 
@@ -75,49 +75,62 @@ func main() {
 	// The connection pool settings are used to configure the connection pool that the application will use to connect to the PostgreSQL database.
 	// The maxOpenConns setting is used to set the maximum number of open connections in the pool. and the maxIdleConns setting is used to set the maximum number of idle connections in the pool.
 	// The maxIdleTime setting is used to set the maximum amount of time that a connection can remain idle in the pool before it is closed and removed from the pool.
-	flag.IntVar(&cfg.db.maxOpenConns, "db-max-open-conns", 25, "PostgreSQL max open connections")
-	flag.IntVar(&cfg.db.maxIdleConns, "db-max-idle-conns", 25, "PostgreSQL max idle connections")
-	flag.StringVar(&cfg.db.maxIdleTime, "db-max-idle-time", "15m", "PostgreSQL max connection idle time")
+	// flag.IntVar(&cfg.db.maxOpenConns, "db-max-open-conns", 25, "PostgreSQL max open connections")
+	// flag.IntVar(&cfg.db.maxIdleConns, "db-max-idle-conns", 25, "PostgreSQL max idle connections")
+	// flag.StringVar(&cfg.db.maxIdleTime, "db-max-idle-time", "15m", "PostgreSQL max connection idle time")
 
 	// The rate limiter middleware is used to limit the number of requests that a client can make to the API within a given time window.
 	// The rate limiter settings are used to configure the rate limiter middleware. settings from command-line flags into the config struct.
-	flag.Float64Var(&cfg.limiter.rps, "limiter-rps", 2, "Rate limiter maximu requests per second")
-	flag.IntVar(&cfg.limiter.burst, "limit-burst", 4, "Rte limiter maximum burst")
-	flag.BoolVar(&cfg.limiter.enabled, "limiter-enabled", true, "Enable rate limiter")
+	// flag.Float64Var(&cfg.limiter.rps, "limiter-rps", 2, "Rate limiter maximu requests per second")
+	// flag.IntVar(&cfg.limiter.burst, "limit-burst", 4, "Rte limiter maximum burst")
+	// flag.BoolVar(&cfg.limiter.enabled, "limiter-enabled", true, "Enable rate limiter")
 
 	// Read the SMTP server settings from command-line flags into the config struct.
 	// The SMTP server settings are used to configure the SMTP server that the application will use to send emails.
-	flag.StringVar(&cfg.smtp.host, "smtp-host", "sandbox.smtp.mailtrap.io", "SMTP host")
-	flag.IntVar(&cfg.smtp.port, "smtp-port", 25, "SMTP port")
-	flag.StringVar(&cfg.smtp.username, "smtp-username", "", "SMTP username")
-	flag.StringVar(&cfg.smtp.password, "smtp-password", "", "SMTP password")
-	flag.StringVar(&cfg.smtp.sender, "smtp-sender", "nytro04@gmail.com", "SMTP sender")
+	// flag.StringVar(&cfg.smtp.host, "smtp-host", "sandbox.smtp.mailtrap.io", "SMTP host")
+	// flag.IntVar(&cfg.smtp.port, "smtp-port", 25, "SMTP port")
+	// flag.StringVar(&cfg.smtp.username, "smtp-username", "", "SMTP username")
+	// flag.StringVar(&cfg.smtp.password, "smtp-password", "", "SMTP password")
+	// flag.StringVar(&cfg.smtp.sender, "smtp-sender", "nytro04@gmail.com", "SMTP sender")
 
 	// use teh flag.Func to process the cors-trusted-origins flag. use strings fields to split the space-separated list of origins into a slice of strings and assign it to the config struct.
 	// if the flag is not provided, i.e empty string, white space, the trustedOrigins field will be an empty slice.
 	// The CORS settings are used to configure Cross-Origin Resource Sharing (CORS) for the API server.
-	flag.Func("cors-trusted-origins", "Trusted CORS origins (space-separated)", func(val string) error {
-		cfg.cors.trustedOrigins = strings.Fields(val)
-		return nil
-	})
+	// flag.Func("cors-trusted-origins", "Trusted CORS origins (space-separated)", func(val string) error {
+	// 	cfg.cors.trustedOrigins = strings.Fields(val)
+	// 	return nil
+	// })
 
 	// create a new version boolean flag with a default value of false
-	displayVersion := flag.Bool("version", false, "Display version and exit")
+	// displayVersion := flag.Bool("version", false, "Display version and exit")
 
-	if cfg.env == "development" {
+	env := os.Getenv("environment")
+	if env == "" {
+		env = "development"
+	}
+
+	if env == "development" {
 		err := godotenv.Load()
 		if err != nil {
 			logger.PrintFatal(err, map[string]string{"message": "Error loading .env file"})
 		}
 	}
 
+	var dbHost string
+	if env == "development" {
+		dbHost = "localhost"
+	} else {
+		dbHost = os.Getenv("DB_HOST")
+	}
+
 	// Read the connection pool settings, rate limiter settings, and other configuration settings from environment variables.
 	var (
-		dbHost = os.Getenv("DB_HOST")
+		// dbHost = os.Getenv("DB_HOST")
 		// dbPort             = os.Getenv("DB_PORT")
 		dbUser             = os.Getenv("DB_USER")
 		dbPassword         = os.Getenv("DB_PASSWORD")
 		dbName             = os.Getenv("DB_NAME")
+		httpPort           = os.Getenv("HTTP_PORT")
 		limiterRPS         = os.Getenv("LIMITER_RPS")
 		limiterBurst       = os.Getenv("LIMITER_BURST")
 		limiterEnabled     = os.Getenv("LIMITER_ENABLED")
@@ -127,6 +140,10 @@ func main() {
 		SMTPPassword       = os.Getenv("SMTP_PASSWORD")
 		CORSTrustedOrigins = os.Getenv("CORS_TRUSTED_ORIGINS")
 		// SMTPSender     = os.Getenv("SMTP_SENDER")
+		environment    = os.Getenv("environment")
+		dbMaxIdleTime  = os.Getenv("DB_MAX_IDLE_TIME")
+		dbMaxOpenConns = os.Getenv("DB_MAX_OPEN_CONNS")
+		dbMaxIdleConns = os.Getenv("DB_MAX_IDLE_CONNS")
 	)
 
 	// Construct the PostgreSQL DSN from the environment variables.
@@ -134,26 +151,43 @@ func main() {
 	// dsn := fmt.Sprintf("host=db user=%s password=%s port=%s dbname=%s sslmode=disable", dbUser, dbPassword, dbName, dbPort)
 
 	// construct the PostgreSQL DSN from the terminal flags
-	flag.StringVar(&cfg.db.dsn, "db-dsn", "", "PostgreSQL DSN")
+	// flag.StringVar(&cfg.db.dsn, "db-dsn", "", "PostgreSQL DSN")
 
 	// Parse the command-line flags
 	flag.Parse()
 
 	// if the version flag is true, print the version and exit
-	if *displayVersion {
-		fmt.Printf("Version:\t%s\n", version)
-		fmt.Printf("Build time:\t%s\n", buildTime)
-		os.Exit(0)
-	}
+	// if *displayVersion {
+	// 	fmt.Printf("Version:\t%s\n", version)
+	// 	fmt.Printf("Build time:\t%s\n", buildTime)
+	// 	os.Exit(0)
+	// }
+
+	var err error
 
 	// assign cgf.db.dsn to the dsn variable
 	cfg.db.dsn = dsn
+	cfg.port, err = strconv.Atoi(httpPort)
+	if err != nil {
+		logger.PrintFatal(err, map[string]string{"message": "Invalid value for HTTP_PORT"})
+	}
+	cfg.db.maxIdleTime = dbMaxIdleTime
+	cfg.db.maxIdleConns, err = strconv.Atoi(dbMaxIdleConns)
+	if err != nil {
+		logger.PrintFatal(err, map[string]string{"message": "Invalid value for DB_MAX_IDLE_CONNS"})
+	}
+	cfg.db.maxOpenConns, err = strconv.Atoi(dbMaxOpenConns)
+	if err != nil {
+		logger.PrintFatal(err, map[string]string{"message": "Invalid value for DB_MAX_OPEN_CONNS"})
+	}
 
 	// assign the trusted origins to the config struct
 	cfg.cors.trustedOrigins = strings.Fields(CORSTrustedOrigins)
 
+	// assign environment variable to the config struct
+	cfg.env = environment
+
 	// add rate limiter settings from environment variables
-	var err error
 	cfg.limiter.rps, err = strconv.ParseFloat(limiterRPS, 64)
 	if err != nil {
 		logger.PrintFatal(err, map[string]string{"message": "Invalid value for LIMITER_RPS"})
