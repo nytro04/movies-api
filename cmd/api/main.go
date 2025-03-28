@@ -167,50 +167,41 @@ func main() {
 
 	// assign cgf.db.dsn to the dsn variable
 	cfg.db.dsn = dsn
-	portInt64, err := strconv.ParseInt(httpPort, 10, 0)
-	if err != nil {
-		logger.PrintFatal(err, map[string]string{"message": "Invalid value for HTTP_PORT"})
-	}
-	cfg.port = int(portInt64)
-	if err != nil {
-		logger.PrintFatal(err, map[string]string{"message": "Invalid value for HTTP_PORT"})
-	}
-	cfg.db.maxIdleTime = dbMaxIdleTime
+	if env == "development" {
+		cfg.port, err = strconv.Atoi(httpPort)
+		if err != nil {
+			logger.PrintFatal(err, map[string]string{"message": "Invalid value for HTTP_PORT"})
+		}
+		cfg.db.maxIdleTime = dbMaxIdleTime
+		cfg.db.maxIdleConns, err = strconv.Atoi(dbMaxIdleConns)
+		if err != nil {
+			logger.PrintFatal(err, map[string]string{"message": "Invalid value for DB_MAX_IDLE_CONNS"})
+		}
+		cfg.db.maxOpenConns, err = strconv.Atoi(dbMaxOpenConns)
+		if err != nil {
+			logger.PrintFatal(err, map[string]string{"message": "Invalid value for DB_MAX_OPEN_CONNS"})
+		}
 
-	conns64, err := strconv.ParseInt(dbMaxIdleConns, 10, 0)
-	if err != nil {
-		logger.PrintFatal(err, map[string]string{"message": "Invalid value for DB_MAX_IDLE_CONNS"})
-	}
-	cfg.db.maxIdleConns = int(conns64)
-	if err != nil {
-		logger.PrintFatal(err, map[string]string{"message": "Invalid value for DB_MAX_IDLE_CONNS"})
-	}
+		// assign the trusted origins to the config struct
+		cfg.cors.trustedOrigins = strings.Fields(CORSTrustedOrigins)
 
-	max64, err := strconv.ParseInt(dbMaxOpenConns, 10, 0)
-	if err != nil {
-		logger.PrintFatal(err, map[string]string{"message": "Invalid value for DB_MAX_OPEN_CONNS"})
-	}
+		// assign environment variable to the config struct
+		cfg.env = environment
 
-	cfg.db.maxOpenConns = int(max64)
+		// add rate limiter settings from environment variables
+		cfg.limiter.rps, err = strconv.ParseFloat(limiterRPS, 64)
+		if err != nil {
+			logger.PrintFatal(err, map[string]string{"message": "Invalid value for LIMITER_RPS"})
+		}
+		cfg.limiter.burst, err = strconv.Atoi(limiterBurst)
+		if err != nil {
+			logger.PrintFatal(err, map[string]string{"message": "Invalid value for LIMITER_BURST"})
+		}
+		cfg.limiter.enabled, err = strconv.ParseBool(limiterEnabled)
+		if err != nil {
+			logger.PrintFatal(err, map[string]string{"message": "Invalid value for LIMITER_ENABLED"})
+		}
 
-	// assign the trusted origins to the config struct
-	cfg.cors.trustedOrigins = strings.Fields(CORSTrustedOrigins)
-
-	// assign environment variable to the config struct
-	cfg.env = environment
-
-	// add rate limiter settings from environment variables
-	cfg.limiter.rps, err = strconv.ParseFloat(limiterRPS, 64)
-	if err != nil {
-		logger.PrintFatal(err, map[string]string{"message": "Invalid value for LIMITER_RPS"})
-	}
-	cfg.limiter.burst, err = strconv.Atoi(limiterBurst)
-	if err != nil {
-		logger.PrintFatal(err, map[string]string{"message": "Invalid value for LIMITER_BURST"})
-	}
-	cfg.limiter.enabled, err = strconv.ParseBool(limiterEnabled)
-	if err != nil {
-		logger.PrintFatal(err, map[string]string{"message": "Invalid value for LIMITER_ENABLED"})
 	}
 
 	// open a connection to the database and defer the close
@@ -223,9 +214,12 @@ func main() {
 	logger.PrintInfo("database connection pool established", nil)
 
 	// convert the SMTP port from a string to an integer
-	SMTPPort, err := strconv.Atoi(SMTPPortStr)
-	if err != nil {
-		logger.PrintError(err, map[string]string{"message": "Invalid value for SMTP_PORT"})
+	var SMTPPort int
+	if env == "development" {
+		SMTPPort, err = strconv.Atoi(SMTPPortStr)
+		if err != nil {
+			logger.PrintError(err, map[string]string{"message": "Invalid value for SMTP_PORT"})
+		}
 	}
 
 	// add a version variable to the expvar package to expose the application version
