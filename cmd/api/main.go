@@ -167,31 +167,19 @@ func main() {
 
 	// assign cgf.db.dsn to the dsn variable
 	cfg.db.dsn = dsn
-	portInt64, err := strconv.ParseInt(httpPort, 10, 0)
-	if err != nil {
-		logger.PrintFatal(err, map[string]string{"message": "Invalid value for HTTP_PORT"})
-	}
-	cfg.port = int(portInt64)
+	cfg.port, err = strconv.Atoi(httpPort)
 	if err != nil {
 		logger.PrintFatal(err, map[string]string{"message": "Invalid value for HTTP_PORT"})
 	}
 	cfg.db.maxIdleTime = dbMaxIdleTime
-
-	conns64, err := strconv.ParseInt(dbMaxIdleConns, 10, 0)
+	cfg.db.maxIdleConns, err = strconv.Atoi(dbMaxIdleConns)
 	if err != nil {
 		logger.PrintFatal(err, map[string]string{"message": "Invalid value for DB_MAX_IDLE_CONNS"})
 	}
-	cfg.db.maxIdleConns = int(conns64)
-	if err != nil {
-		logger.PrintFatal(err, map[string]string{"message": "Invalid value for DB_MAX_IDLE_CONNS"})
-	}
-
-	max64, err := strconv.ParseInt(dbMaxOpenConns, 10, 0)
+	cfg.db.maxOpenConns, err = strconv.Atoi(dbMaxOpenConns)
 	if err != nil {
 		logger.PrintFatal(err, map[string]string{"message": "Invalid value for DB_MAX_OPEN_CONNS"})
 	}
-
-	cfg.db.maxOpenConns = int(max64)
 
 	// assign the trusted origins to the config struct
 	cfg.cors.trustedOrigins = strings.Fields(CORSTrustedOrigins)
