@@ -120,15 +120,8 @@ func main() {
 	// fmt.Printf("db name:\t%s\n", os.Getenv("DB_NAME"))
 	// fmt.Printf("db host:\t%s\n", os.Getenv("DB_HOST"))
 
-	// use DATABASE_URL for railway
-	var dsn string
-	if env == "development" {
-		dsn = fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", os.Getenv("DB_USER"), os.Getenv("DB_PASSWORD"), dbHost, os.Getenv("DB_NAME"))
+	dsn := fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", os.Getenv("DB_USER"), os.Getenv("DB_PASSWORD"), dbHost, os.Getenv("DB_NAME"))
 
-	} else {
-
-		dsn = os.Getenv("DATABASE_URL")
-	}
 	// use the environment variables for local development
 	// dsn := fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", dbUser, dbPassword, dbHost, dbName)
 
