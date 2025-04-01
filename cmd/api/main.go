@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"expvar"
 	"flag"
 	"fmt"
@@ -13,8 +14,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
+	"github.com/nytro04/greenlight/assets"
 	"github.com/nytro04/greenlight/internal/data"
 	"github.com/nytro04/greenlight/internal/jsonlog"
 	"github.com/nytro04/greenlight/internal/mailer"
@@ -180,6 +184,10 @@ func main() {
 	// create a new version boolean flag with a default value of false
 	displayVersion := flag.Bool("version", false, "Display version and exit")
 
+	// get automigrate from env
+	automigrate := os.Getenv("AUTO_MIGRATE")
+	automigrateBool, _ := strconv.ParseBool(automigrate)
+
 	// Construct the PostgreSQL DSN from the environment variables.
 	// dsn := fmt.Sprintf("host=db user=%s password=%s port=%s dbname=%s sslmode=disable", dbUser, dbPassword, dbName, dbPort)
 
@@ -236,7 +244,7 @@ func main() {
 	// }
 
 	// open a connection to the database and defer the close
-	db, err := openDB(cfg)
+	db, err := openDB(cfg, automigrateBool)
 	if err != nil {
 		logger.PrintFatal(err, map[string]string{"message": "Error opening database connection"})
 	}
@@ -280,7 +288,7 @@ func main() {
 }
 
 // openDB opens a new database connection using the provided DSN. It returns a sql.DB connection pool.
-func openDB(cfg config) (*sql.DB, error) {
+func openDB(cfg config, autoMigrate bool) (*sql.DB, error) {
 	// Open a sql.DB connection pool
 	db, err := sql.Open("postgres", cfg.db.dsn)
 	if err != nil {
@@ -300,6 +308,28 @@ func openDB(cfg config) (*sql.DB, error) {
 
 	// set the maximum idle timeout
 	db.SetConnMaxIdleTime(duration)
+
+	// run automigrate if the autoMigrate flag is true
+	if autoMigrate {
+		iofsDriver, err := iofs.New(assets.EmbeddedFiles, "migration")
+		if err != nil {
+			return nil, err
+		}
+
+		migrator, err := migrate.NewWithSourceInstance("iofs", iofsDriver, cfg.db.dsn)
+		if err != nil {
+			return nil, err
+		}
+		// run the migration
+		err = migrator.Up()
+		switch {
+		case errors.Is(err, migrate.ErrNoChange):
+			break
+		case err != nil:
+			return nil, err
+
+		}
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
